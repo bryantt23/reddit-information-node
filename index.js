@@ -42,7 +42,8 @@ app.get("/reddit", async (req, res) => {
 
     try {
         const token = await getAccessToken();
-        const apiUrl = url.endsWith(".json") ? url : url.replace(/\/$/, "") + ".json";
+        const originalUrl = url.trim();
+        const apiUrl = originalUrl.replace("https://www.reddit.com", "https://oauth.reddit.com").replace(/\/$/, "");
 
         const response = await fetch(apiUrl, {
             headers: {
