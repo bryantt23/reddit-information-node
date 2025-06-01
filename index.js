@@ -1,10 +1,39 @@
 const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
-
 const app = express();
+require("dotenv").config();
+
 app.use(cors());
 
+// Get Reddit OAuth Token
+async function getAccessToken() {
+    const creds = Buffer.from(
+        `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
+    ).toString("base64");
+
+    const response = await fetch("https://www.reddit.com/api/v1/access_token", {
+        method: "POST",
+        headers: {
+            Authorization: `Basic ${creds}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+            grant_type: "password",
+            username: process.env.REDDIT_USERNAME,
+            password: process.env.REDDIT_PASSWORD,
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to get Reddit token: " + (await response.text()));
+    }
+
+    const data = await response.json();
+    return data.access_token;
+}
+
+// Proxy endpoint
 app.get("/reddit", async (req, res) => {
     const url = req.query.url;
     if (!url || !url.startsWith("https://")) {
@@ -12,10 +41,14 @@ app.get("/reddit", async (req, res) => {
     }
 
     try {
-        const response = await fetch(url, {
+        const token = await getAccessToken();
+        const apiUrl = url.endsWith(".json") ? url : url.replace(/\/$/, "") + ".json";
+
+        const response = await fetch(apiUrl, {
             headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-            }
+                Authorization: `Bearer ${token}`,
+                "User-Agent": "RedditScraper/0.1 by bryantt23",
+            },
         });
 
         if (!response.ok) {
@@ -31,5 +64,5 @@ app.get("/reddit", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Proxy server running on port ${PORT}`);
+    console.log(`✅ Reddit proxy server running on port ${PORT}`);
 });
